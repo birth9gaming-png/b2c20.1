@@ -1,0 +1,36 @@
+# Saves sportsbook lines + DraftKings splits to your Cloudflare R2 bucket on a schedule,
+# so the app always has openers, line moves and closing lines.
+# Uses ~2 Odds API credits per league per run: 9 runs/week x 2 leagues x 2 = ~36/week (~155/month of 500).
+# Add the secrets under GitHub repo -> Settings -> Secrets and variables -> Actions.
+name: line-snapshots
+on:
+  workflow_dispatch: {}
+  schedule:
+    # times are UTC (ET + 4 during daylight time)
+    - cron: '30 23 * * 0'   # Sun 7:30pm ET  - openers for next week (CFB) / look-ahead NFL lines
+    - cron: '0 15 * * 2'    # Tue 11am ET
+    - cron: '0 15 * * 4'    # Thu 11am ET   - before Thursday games
+    - cron: '0 20 * * 5'    # Fri 4pm ET    - before Friday games
+    - cron: '0 14 * * 6'    # Sat 10am ET   - CFB noon kickoffs
+    - cron: '0 18 * * 6'    # Sat 2pm ET    - CFB afternoon
+    - cron: '0 22 * * 6'    # Sat 6pm ET    - CFB night
+    - cron: '30 16 * * 0'   # Sun 12:30pm ET - NFL 1pm close
+    - cron: '0 22 * * 1'    # Mon 6pm ET    - Monday night close
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: python snapshot.py
+        env:
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
